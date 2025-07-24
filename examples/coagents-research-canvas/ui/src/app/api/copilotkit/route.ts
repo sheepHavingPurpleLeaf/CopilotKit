@@ -9,8 +9,14 @@ import {
 import OpenAI from "openai";
 import { NextRequest } from "next/server";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const llmAdapter = new OpenAIAdapter({ openai } as any);
+const openai = new OpenAI({ 
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3"
+});
+const llmAdapter = new OpenAIAdapter({ 
+  openai,
+  model: process.env.DEEPSEEK_MODEL || "ep-20250206170923-bx29l"
+} as any);
 const langsmithApiKey = process.env.LANGSMITH_API_KEY as string;
 
 export const POST = async (req: NextRequest) => {
@@ -25,6 +31,9 @@ export const POST = async (req: NextRequest) => {
     agents: {
       'research_agent': new LangGraphHttpAgent({
         url: `${baseUrl}/agents/research_agent`,
+      }),
+      'research_agent_deepseek': new LangGraphHttpAgent({
+        url: `${baseUrl}/agents/research_agent_deepseek`,
       }),
       'research_agent_google_genai': new LangGraphHttpAgent({
         url: `${baseUrl}/agents/research_agent_google_genai`,
@@ -49,6 +58,11 @@ export const POST = async (req: NextRequest) => {
           deploymentUrl,
           langsmithApiKey,
           graphId: 'research_agent',
+        }),
+        'research_agent_deepseek': new LangGraphAgent({
+          deploymentUrl,
+          langsmithApiKey,
+          graphId: 'research_agent_deepseek',
         }),
         'research_agent_google_genai': new LangGraphAgent({
           deploymentUrl,

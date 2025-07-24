@@ -51,12 +51,17 @@ sdk = CopilotKitRemoteEndpoint(
     agents=[
         LangGraphAgent(
             name="research_agent",
-            description="Research agent.",
+            description="Research agent with OpenAI.",
             graph=graph,
         ),
         LangGraphAgent(
+            name="research_agent_deepseek",
+            description="Research agent with DeepSeek V3.",
+            graph=graph
+        ),
+        LangGraphAgent(
             name="research_agent_google_genai",
-            description="Research agent.",
+            description="Research agent with Google GenAI.",
             graph=graph
         ),
     ],

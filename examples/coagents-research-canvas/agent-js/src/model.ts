@@ -19,6 +19,16 @@ function getModel(state: AgentState): BaseChatModel {
   if (model === "openai") {
     return new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
   }
+  if (model === "deepseek") {
+    return new ChatOpenAI({
+      temperature: 0,
+      model: process.env.DEEPSEEK_MODEL || "ep-20250206170923-bx29l",
+      openAIApiKey: process.env.OPENAI_API_KEY,
+      configuration: {
+        baseURL: process.env.OPENAI_BASE_URL || "https://ark.cn-beijing.volces.com/api/v3",
+      },
+    });
+  }
   if (model === "anthropic") {
     return new ChatAnthropic({
       temperature: 0,
