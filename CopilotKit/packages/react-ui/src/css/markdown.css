@@ -80,6 +80,12 @@ ul.copilotKitMarkdownElement {
   overflow: visible;
 }
 
+ol.copilotKitMarkdownElement {
+  list-style-type: decimal;
+  padding-left: 20px;
+  overflow: visible;
+}
+
 li.copilotKitMarkdownElement {
   list-style-type: inherit;
   list-style-position: outside;

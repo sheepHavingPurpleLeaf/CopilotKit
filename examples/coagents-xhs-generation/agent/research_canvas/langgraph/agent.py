@@ -36,12 +36,14 @@ workflow.add_edge("download", "router_node")
 
 # End nodes
 workflow.add_edge("conversation_node", END)  # Conversation ends directly
-workflow.add_edge("note_creation_node", END)  # Note creation ends directly
 
 # Handle special flows that need routing back
 workflow.add_edge("delete_node", "perform_delete_node")
 workflow.add_edge("perform_delete_node", "router_node")  # Back to router after delete
 workflow.add_edge("search_node", "download")  # Search goes back to download
+
+# Note: note_creation_node uses Command.goto() for conditional routing
+# It can go to either "router_node" or "__end__" depending on the tool calls
 
 # Conditionally use a checkpointer based on the environment
 # This allows compatibility with both LangGraph API and CopilotKit

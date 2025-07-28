@@ -23,8 +23,14 @@ async def router_node(state: AgentState, config: RunnableConfig) -> \
         
         latest_message = state['messages'][-1]
         
+        # 如果最后一条消息是AI消息，说明刚完成了一个工具调用，应该结束流程
+        if isinstance(latest_message, AIMessage):
+            print(f"📝 检测到AI消息，工具调用流程完成，结束对话")
+            return Command(goto="__end__")
+        
         # 只处理人类消息
         if not isinstance(latest_message, HumanMessage):
+            print(f"⚠️ 非人类消息类型: {type(latest_message).__name__}，结束流程")
             return Command(goto="__end__")
         
         user_input = latest_message.content

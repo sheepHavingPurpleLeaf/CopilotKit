@@ -253,128 +253,117 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
         for i, tool_call in enumerate(ai_message.tool_calls):
             print(f"  [{i+1}] 工具: {tool_call['name']}")
             print(f"      参数: {tool_call.get('args', {})}")
-            
-        # 处理工具调用
-        tool_name = ai_message.tool_calls[0]["name"]
-        print(f"🚀 执行工具: {tool_name}")
         
-        if tool_name == "WriteXiaohongshuNote":
-            xiaohongshu_note = ai_message.tool_calls[0]["args"].get("xiaohongshu_note", "")
-            print(f"📝 生成笔记长度: {len(xiaohongshu_note)}字符")
-            print(f"📝 笔记预览: {xiaohongshu_note[:100]}...")
+        # 处理所有工具调用
+        updates = {}
+        tool_messages = []
+        ai_responses = []
+        
+        print(f"🚀 开始处理 {len(ai_message.tool_calls)} 个工具调用")
+        
+        for i, tool_call in enumerate(ai_message.tool_calls):
+            tool_name = tool_call["name"]
+            tool_args = tool_call.get("args", {})
+            tool_id = tool_call["id"]
             
-            # 修复：不再将ToolMessage重新加入处理队列
-            print(f"✅ 笔记生成完成，直接结束")
-            return Command(
-                goto="__end__",
-                update={
-                    "xiaohongshu_note": xiaohongshu_note,
-                    "messages": [ai_message, ToolMessage(
-                        tool_call_id=ai_message.tool_calls[0]["id"],
-                        content="小红书笔记已生成完成。"
-                    )]
-                }
-            )
+            print(f"🔧 [{i+1}/{len(ai_message.tool_calls)}] 执行工具: {tool_name}")
             
-        elif tool_name == "WriteProductInfo":
-            product_info = ai_message.tool_calls[0]["args"].get("product_info", {})
-            print(f"📦 更新产品信息: {product_info}")
-            
-            # 检查是否已有博主人设
-            current_persona = state.get("blogger_persona", {})
-            has_persona = current_persona and isinstance(current_persona, dict) and current_persona.get("name")
-            
-            if not has_persona:
-                print(f"💡 产品信息已更新，建议生成博主人设")
-                # 返回带有建议的消息，包含明确的系统回复
-                suggestion_message = ToolMessage(
-                    tool_call_id=ai_message.tool_calls[0]["id"],
-                    content="产品信息已更新！"
-                )
-                # 添加一个AI助手的建议消息
-                ai_suggestion = AIMessage(
-                    content="✅ 产品信息已成功录入！接下来我建议生成一个专属的博主人设，这样可以让后续的笔记创作更加个性化和有针对性。\n\n您可以说：\n- \"生成博主人设\"\n- \"帮我创建人设\" \n- 或者直接说\"帮我写笔记\"，我会先生成人设再创作笔记。"
-                )
+            if tool_name == "WriteXiaohongshuNote":
+                xiaohongshu_note = tool_args.get("xiaohongshu_note", "")
+                print(f"📝 生成笔记长度: {len(xiaohongshu_note)}字符")
+                print(f"📝 笔记预览: {xiaohongshu_note[:100]}...")
+                
+                updates["xiaohongshu_note"] = xiaohongshu_note
+                tool_messages.append(ToolMessage(
+                    tool_call_id=tool_id,
+                    content="小红书笔记已生成完成。"
+                ))
+                ai_responses.append(f"✅ 小红书笔记创作完成！({len(xiaohongshu_note)}字符)")
+                
+            elif tool_name == "GenerateTags":
+                tags = tool_args.get("tags", [])
+                print(f"🏷️ 生成标签数量: {len(tags)}个")
+                for j, tag in enumerate(tags[:3]):
+                    print(f"    [{j+1}] {tag.get('name', 'Unknown')} (热度: {tag.get('heat_level', 'Unknown')})")
+                
+                updates["tags"] = tags
+                tool_messages.append(ToolMessage(
+                    tool_call_id=tool_id,
+                    content="话题标签已生成。"
+                ))
+                tags_preview = ", ".join([f"#{tag.get('name', 'Unknown')}" for tag in tags[:3]])
+                ai_responses.append(f"🏷️ 生成了{len(tags)}个热门标签：{tags_preview}")
+                
+            elif tool_name == "WriteProductInfo":
+                product_info = tool_args.get("product_info", {})
+                print(f"📦 更新产品信息: {product_info}")
+                
+                updates["product_info"] = product_info
+                tool_messages.append(ToolMessage(
+                    tool_call_id=tool_id,
+                    content="产品信息已更新。"
+                ))
+                ai_responses.append("📦 产品信息已成功更新")
+                
+            elif tool_name == "GenerateBloggerPersona":
+                blogger_persona = tool_args.get("blogger_persona", {})
+                print(f"👤 生成博主人设: {blogger_persona.get('name', '未命名')}")
+                print(f"📝 人设风格: {blogger_persona.get('style', '未定义')}")
+                
+                updates["blogger_persona"] = blogger_persona
+                tool_messages.append(ToolMessage(
+                    tool_call_id=tool_id,
+                    content="博主人设已生成完成。"
+                ))
+                ai_responses.append(f"👤 博主人设'{blogger_persona.get('name', '未命名')}'已生成")
+                
+            elif tool_name == "Search":
+                print(f"🔍 搜索请求将转发到搜索节点")
+                # 搜索需要特殊处理，跳转到搜索节点
                 return Command(
-                    goto="__end__",
+                    goto="search_node",
                     update={
-                        "product_info": product_info,
-                        "messages": [ai_message, suggestion_message, ai_suggestion]
+                        "messages": [ai_message]
+                    }
+                )
+                
+            elif tool_name == "DeleteReferenceMaterials":
+                print(f"🗑️ 删除请求将转发到删除节点")
+                # 删除需要特殊处理，跳转到删除节点
+                return Command(
+                    goto="delete_node",
+                    update={
+                        "messages": [ai_message]
                     }
                 )
             else:
-                suggestion_message = ToolMessage(
-                    tool_call_id=ai_message.tool_calls[0]["id"],
-                    content="产品信息已更新。"
-                )
-            
-            print(f"✅ 产品信息更新完成")
-            return Command(
-                goto="__end__",
-                update={
-                    "product_info": product_info,
-                    "messages": [ai_message, suggestion_message]
-                }
+                print(f"⚠️ 未知工具: {tool_name}")
+                tool_messages.append(ToolMessage(
+                    tool_call_id=tool_id,
+                    content=f"未知工具: {tool_name}"
+                ))
+        
+        # 生成综合回复消息
+        if ai_responses:
+            combined_response = "\n".join(ai_responses)
+            final_ai_message = AIMessage(
+                content=f"{combined_response}\n\n可以继续和我聊天或请求其他功能！"
             )
-            
-        elif tool_name == "GenerateTags":
-            tags = ai_message.tool_calls[0]["args"].get("tags", [])
-            print(f"🏷️ 生成标签数量: {len(tags)}个")
-            for i, tag in enumerate(tags[:3]):  # 显示前3个标签
-                print(f"  [{i+1}] {tag.get('name', 'Unknown')} (热度: {tag.get('heat_level', 'Unknown')})")
-            print(f"✅ 标签生成完成，直接结束")
-            
-            # 标签状态将通过return的update自动同步到前端
-            
-            return Command(
-                goto="__end__",
-                update={
-                    "tags": tags,
-                    "messages": [ai_message, ToolMessage(
-                        tool_call_id=ai_message.tool_calls[0]["id"],
-                        content="话题标签已生成。"
-                    )]
-                }
-            )
-            
-        elif tool_name == "Search":
-            print(f"🔍 执行搜索工具")
-            print(f"➡️ 下一步: 跳转到search_node")
-            return Command(
-                goto="search_node",
-                update={
-                    "messages": [ai_message]
-                }
-            )
-            
-        elif tool_name == "DeleteReferenceMaterials":
-            print(f"🗑️ 执行删除素材工具")
-            print(f"➡️ 下一步: 跳转到delete_node")
-            return Command(
-                goto="delete_node",
-                update={
-                    "messages": [ai_message]
-                }
-            )
-            
-        elif tool_name == "GenerateBloggerPersona":
-            blogger_persona = ai_message.tool_calls[0]["args"].get("blogger_persona", {})
-            print(f"👤 生成博主人设: {blogger_persona.get('name', '未命名')}")
-            print(f"📝 人设风格: {blogger_persona.get('style', '未定义')}")
-            print(f"✅ 博主人设生成完成，直接结束")
-            
-            # 博主人设状态将通过return的update自动同步到前端
-            
-            return Command(
-                goto="__end__",
-                update={
-                    "blogger_persona": blogger_persona,
-                    "messages": [ai_message, ToolMessage(
-                        tool_call_id=ai_message.tool_calls[0]["id"],
-                        content="博主人设已生成完成。"
-                    )]
-                }
-            )
+        else:
+            final_ai_message = AIMessage(content="操作已完成！")
+        
+        print(f"✅ 所有工具调用处理完成，返回到router进行下一步决策")
+        
+        # 构建完整的消息序列
+        all_messages = [ai_message] + tool_messages + [final_ai_message]
+        
+        return Command(
+            goto="router_node",  # 回到router而不是直接结束
+            update={
+                **updates,
+                "messages": all_messages
+            }
+        )
     else:
         # 没有工具调用，直接返回文本回复
         print(f"📝 文本响应: {ai_message.content[:200]}...")

@@ -35,10 +35,12 @@ export default function Main() {
     },
   });
 
+  // useCopilotChatSuggestions({
+  //   instructions: "帮我写一篇小红书笔记",
+  // });
   useCopilotChatSuggestions({
-    instructions: "帮我写一篇小红书笔记",
+    instructions: "生成3个建议，让用户可以询问：'我的产品叫什么？'、'我的产品有哪些特点？'、'我的目标用户是哪些人？'",
   });
-
   return (
     <>
       <h1 className="flex h-[60px] bg-[#0E103D] text-white items-center px-10 text-2xl font-medium">

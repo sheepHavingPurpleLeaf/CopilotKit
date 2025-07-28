@@ -111,6 +111,15 @@ const defaultComponents: Components = {
       {children}
     </ul>
   ),
+  ol: ({ children, ...props }) => {
+    // Filter out invalid HTML attributes
+    const { ordered, ...validProps } = props as any;
+    return (
+      <ol className="copilotKitMarkdownElement" {...validProps}>
+        {children}
+      </ol>
+    );
+  },
   li: ({ children, ...props }) => (
     <li className="copilotKitMarkdownElement" {...props}>
       {children}
