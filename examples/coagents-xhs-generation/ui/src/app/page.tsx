@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <CopilotKit 
       runtimeUrl="/api/copilotkit" 
-      showDevConsole={false} 
+      showDevConsole={true} 
       agent="xiaohongshu_agent"
     >
       <Main />

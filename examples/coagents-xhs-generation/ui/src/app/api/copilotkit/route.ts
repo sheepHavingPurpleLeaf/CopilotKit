@@ -22,11 +22,14 @@ const llmAdapter = new OpenAIAdapter({
 
 export const POST = async (req: NextRequest) => {
   const baseUrl = process.env.REMOTE_ACTION_URL || "http://localhost:8000";
+  const agentUrl = `${baseUrl}/copilotkit/agents/xiaohongshu_agent`;
+  
+  console.log('🔗 Connecting to agent at:', agentUrl);
   
   const runtime = new CopilotRuntime({
     agents: {
       'xiaohongshu_agent': new LangGraphHttpAgent({
-        url: `${baseUrl}/copilotkit/agents/xiaohongshu_agent`,
+        url: agentUrl,
       })
     }
   });
@@ -40,6 +43,14 @@ export const POST = async (req: NextRequest) => {
   try {
     return await handleRequest(req);
   } catch (error: any) {
+    console.error('❌ CopilotKit API Error:', error);
+    console.error('Error details:', JSON.stringify({
+      message: error?.message,
+      stack: error?.stack,
+      error: error?.error,
+      status: error?.status
+    }, null, 2));
+    
     // Filter out developer role errors - they don't affect functionality
     if (error?.message?.includes('invalid value: `developer`') || 
         error?.error?.param === 'messages.role') {
