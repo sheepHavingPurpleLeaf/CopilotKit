@@ -6,9 +6,10 @@ from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
 from langchain.tools import tool
 from langgraph.types import Command
 from copilotkit.langgraph import copilotkit_customize_config
-from research_canvas.langgraph.state import AgentState, ProductInfo, Tag, BloggerPersona
+from research_canvas.langgraph.state import AgentState, ProductInfo, BloggerPersona
 from research_canvas.langgraph.model import get_model
 from research_canvas.langgraph.download import get_resource
+from research_canvas.langgraph.rag_node import rag_retrieval_node
 
 
 @tool
@@ -33,12 +34,6 @@ def WriteProductInfo(product_info: ProductInfo): # pylint: disable=invalid-name,
     参数: product_info - 包含产品名称、类别、价格等信息的对象
     """
 
-@tool
-def GenerateTags(tags: List[Tag]): # pylint: disable=invalid-name,unused-argument
-    """
-    生成小红书话题标签。当需要为笔记添加标签时使用此工具。
-    参数: tags - 标签列表，包含标签名称、热度等级等
-    """
 
 @tool
 def AnalyzeCompetitors(analysis: str): # pylint: disable=invalid-name,unused-argument
@@ -61,6 +56,14 @@ def GenerateBloggerPersona(blogger_persona: BloggerPersona): # pylint: disable=i
     参数: blogger_persona - 包含博主人设详细信息的对象
     """
 
+@tool
+def RetrieveFromKnowledgeBase(query: str = ""): # pylint: disable=invalid-name,unused-argument
+    """
+    从文案库检索相关的小红书文案示例。基于当前的Brief数据和产品信息进行智能检索。
+    当用户要求"检索文案库"、"查找文案示例"或需要参考类似文案时使用此工具。
+    参数: query - 可选的自定义检索查询，如果不提供则会基于当前状态自动构建查询
+    """
+
 
 async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
     Command[Literal["search_node", "note_creation_node", "delete_node", "__end__"]]:
@@ -80,12 +83,13 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
     print(f"📊 当前状态:")
     print(f"  - 笔记内容: {'已生成' if state.get('xiaohongshu_note') else '未生成'}")
     print(f"  - 产品信息: {'已填写' if state.get('product_info') and state.get('product_info').get('name') else '未填写'}")
+    print(f"  - Brief数据: {'已上传' if state.get('brief_data') and state.get('brief_data').get('brandName') else '未上传'}")
     
     current_persona = state.get('blogger_persona', {})
     has_valid_persona = current_persona and isinstance(current_persona, dict) and current_persona.get('name')
     print(f"  - 博主人设: {'已生成' if has_valid_persona else '未生成'}")
-    print(f"  - 标签: {len(state.get('tags', []))}个")
     print(f"  - 参考素材: {len(state.get('reference_materials', []))}个")
+    print(f"  - RAG检索结果: {len(state.get('retrieved_examples', []))}个")
 
     # 只为核心功能启用emit配置，避免过度复杂导致错误
     config = copilotkit_customize_config(
@@ -108,11 +112,15 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
     # 确保必要的状态字段存在
     state["reference_materials"] = state.get("reference_materials", [])
     product_info = state.get("product_info", {})
+    brief_data = state.get("brief_data", {})
     xiaohongshu_note = state.get("xiaohongshu_note", "")
-    tags = state.get("tags", [])
-    target_audience = state.get("target_audience", "")
+    # 使用product_info中的target_audience，保持一致性
+    target_audience = product_info.get("target_audience", "") if product_info else ""
     note_style = state.get("note_style", "grass_planting")
     blogger_persona = state.get("blogger_persona", {})
+    # RAG检索结果
+    retrieved_examples = state.get("retrieved_examples", [])
+    retrieved_content = state.get("retrieved_content", "")
 
     # 处理参考素材
     reference_materials = []
@@ -128,7 +136,7 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
     model = get_model(state)
     
     print(f"🤖 准备调用DeepSeek模型...")
-    print(f"🔧 可用工具: {[tool.name for tool in [Search, WriteXiaohongshuNote, WriteProductInfo, GenerateTags, AnalyzeCompetitors, DeleteReferenceMaterials, GenerateBloggerPersona]]}")
+    print(f"🔧 可用工具: {[tool.name for tool in [Search, WriteXiaohongshuNote, WriteProductInfo, AnalyzeCompetitors, DeleteReferenceMaterials, GenerateBloggerPersona, RetrieveFromKnowledgeBase]]}")
     
     try:
         response = await model.bind_tools(
@@ -136,10 +144,10 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
                 Search,
                 WriteXiaohongshuNote,
                 WriteProductInfo,
-                GenerateTags,
                 AnalyzeCompetitors,
                 DeleteReferenceMaterials,
                 GenerateBloggerPersona,
+                RetrieveFromKnowledgeBase,
             ],
             parallel_tool_calls=False
         ).ainvoke([
@@ -160,8 +168,11 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
             - 结构清晰，易于阅读
             - 包含实用信息和个人体验
 
-            ## 当前产品信息：
+            ## 当前产品信息（结构化数据）：
             {product_info}
+
+            ## Brief数据（用户上传的详细信息）：
+            {brief_data}
 
             ## 目标用户：
             {target_audience}
@@ -172,21 +183,28 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
             ## 已生成的笔记内容：
             {xiaohongshu_note}
 
-            ## 话题标签：
-            {tags}
-
             ## 博主人设：
             {blogger_persona}
 
             ## 可用的参考素材：
             {reference_materials}
 
+            ## RAG检索到的小红书文案示例：
+            {retrieved_content}
+
             ## 智能建议系统：
+            
+            **RAG检索说明：**
+            - 以上RAG检索结果来自真实的小红书文案库，包含成功的文案示例
+            - 请参考这些示例的写作风格、结构布局和表达方式
+            - 结合这些示例优化你生成的博主人设和小红书文案
+            - 学习示例中的关键词使用、情感表达和用户互动方式
             
             **当前状态分析：**
             - 产品信息状态: {'已完善' if product_info and product_info.get('name') else '待完善'}
+            - Brief数据状态: {'已上传' if brief_data and brief_data.get('brandName') else '未上传'}
             - 博主人设状态: {'已生成' if blogger_persona and blogger_persona.get('name') else '待生成'}
-            - 建议下一步: {'可以生成博主人设或直接创作笔记' if product_info and product_info.get('name') and not (blogger_persona and blogger_persona.get('name')) else '可以创作笔记内容' if blogger_persona and blogger_persona.get('name') else '请先提供产品信息'}
+            - 建议下一步: {'可以生成博主人设或直接创作笔记' if (product_info and product_info.get('name')) or (brief_data and brief_data.get('brandName')) else '请先提供产品信息或上传Brief表'}
             
             ## 工具使用指南：
             
@@ -194,6 +212,7 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
             
             1. **产品信息相关** → 使用 WriteProductInfo 工具
                - 用户提供产品详情、特点、价格等信息时
+               - **重要：如果Brief数据已上传但产品信息未完善，优先从Brief数据中提取信息填写产品信息**
                
             2. **博主人设生成** → 使用 GenerateBloggerPersona 工具
                - 当有产品信息但还没有博主人设时，优先生成人设
@@ -204,24 +223,30 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
                - 用户说"帮我写"、"创作内容"等时
                - 建议在有博主人设的基础上创作笔记
                
-            4. **标签生成** → 使用 GenerateTags 工具
-               - 用户需要话题标签时
                
             5. **搜索需求** → 使用 Search 工具
                - 用户要求搜索参考资料时
                
             6. **竞品分析** → 使用 AnalyzeCompetitors 工具
                - 用户需要分析同类产品时
+               
+            7. **文案库检索** → 使用 RetrieveFromKnowledgeBase 工具
+               - 用户要求"检索文案库"、"查找文案示例"、"帮我检索文案库"时
+               - 需要参考类似产品的成功文案时
+               - **优先级高**：当有Brief数据时，应主动建议使用此工具获取相关文案示例
 
             **重要原则：**
             - 仔细理解用户意图，选择最合适的工具
             - 如果用户只是询问或讨论，可以直接文本回复而不调用工具
             - 只有在明确需要执行特定功能时才调用对应工具
+            - **智能数据使用**：
+              - Brief数据包含完整的产品详细信息，优先参考Brief数据回答用户问题
+              - 当用户询问产品信息时，应该从Brief数据中提取相关信息回答
+              - 如果Brief数据存在但product_info不完整，建议使用WriteProductInfo工具从Brief数据中提取并填写产品信息
             - **智能工作流程**：
-              1. 产品信息录入 (WriteProductInfo)
+              1. 产品信息录入 (WriteProductInfo) - 可从Brief数据中提取
               2. 博主人设生成 (GenerateBloggerPersona) - 基于产品信息自动触发
               3. 笔记创作 (WriteXiaohongshuNote) - 融入博主人设风格
-              4. 标签生成 (GenerateTags) - 配合笔记内容
             - 当有产品信息但缺少博主人设时，**强烈建议先生成人设**
             - 博主人设能让笔记更具个性化和可信度
             - 优先提供有用的建议和指导
@@ -280,20 +305,6 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
                 ))
                 ai_responses.append(f"✅ 小红书笔记创作完成！({len(xiaohongshu_note)}字符)")
                 
-            elif tool_name == "GenerateTags":
-                tags = tool_args.get("tags", [])
-                print(f"🏷️ 生成标签数量: {len(tags)}个")
-                for j, tag in enumerate(tags[:3]):
-                    print(f"    [{j+1}] {tag.get('name', 'Unknown')} (热度: {tag.get('heat_level', 'Unknown')})")
-                
-                updates["tags"] = tags
-                tool_messages.append(ToolMessage(
-                    tool_call_id=tool_id,
-                    content="话题标签已生成。"
-                ))
-                tags_preview = ", ".join([f"#{tag.get('name', 'Unknown')}" for tag in tags[:3]])
-                ai_responses.append(f"🏷️ 生成了{len(tags)}个热门标签：{tags_preview}")
-                
             elif tool_name == "WriteProductInfo":
                 product_info = tool_args.get("product_info", {})
                 print(f"📦 更新产品信息: {product_info}")
@@ -316,6 +327,36 @@ async def note_creation_node(state: AgentState, config: RunnableConfig) -> \
                     content="博主人设已生成完成。"
                 ))
                 ai_responses.append(f"👤 博主人设'{blogger_persona.get('name', '未命名')}'已生成")
+                
+            elif tool_name == "RetrieveFromKnowledgeBase":
+                print(f"📚 开始文案库检索...")
+                custom_query = tool_args.get("query", "")
+                print(f"🔍 自定义查询: {custom_query if custom_query else '使用自动构建查询'}")
+                
+                # 调用RAG检索函数
+                try:
+                    rag_result = rag_retrieval_node(state)
+                    retrieved_examples = rag_result.get("retrieved_examples", [])
+                    retrieved_content = rag_result.get("retrieved_content", "")
+                    
+                    print(f"📚 检索完成，获得 {len(retrieved_examples)} 个文案示例")
+                    
+                    updates["retrieved_examples"] = retrieved_examples
+                    updates["retrieved_content"] = retrieved_content
+                    
+                    tool_messages.append(ToolMessage(
+                        tool_call_id=tool_id,
+                        content=f"已从文案库检索到 {len(retrieved_examples)} 个相关文案示例，可用于参考创作。"
+                    ))
+                    ai_responses.append(f"📚 文案库检索完成，获得 {len(retrieved_examples)} 个相关示例")
+                    
+                except Exception as e:
+                    print(f"❌ RAG检索失败: {str(e)}")
+                    tool_messages.append(ToolMessage(
+                        tool_call_id=tool_id,
+                        content=f"文案库检索失败: {str(e)}"
+                    ))
+                    ai_responses.append(f"❌ 文案库检索失败: {str(e)}")
                 
             elif tool_name == "Search":
                 print(f"🔍 搜索请求将转发到搜索节点")

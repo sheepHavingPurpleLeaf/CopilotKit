@@ -16,7 +16,6 @@ from research_canvas.langgraph.conversation_node import conversation_node
 from research_canvas.langgraph.note_creation_node import note_creation_node
 from research_canvas.langgraph.search import search_node
 from research_canvas.langgraph.delete import delete_node, perform_delete_node
-
 # Define a new graph with updated routing structure
 workflow = StateGraph(AgentState)
 workflow.add_node("download", download_node)
@@ -40,7 +39,7 @@ workflow.add_edge("conversation_node", END)  # Conversation ends directly
 # Handle special flows that need routing back
 workflow.add_edge("delete_node", "perform_delete_node")
 workflow.add_edge("perform_delete_node", "router_node")  # Back to router after delete
-workflow.add_edge("search_node", "download")  # Search goes back to download
+workflow.add_edge("search_node", "router_node")  # Search goes back to router
 
 # Note: note_creation_node uses Command.goto() for conditional routing
 # It can go to either "router_node" or "__end__" depending on the tool calls
