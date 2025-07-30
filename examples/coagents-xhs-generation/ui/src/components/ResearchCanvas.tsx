@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { useState, useEffect, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useCoAgent,
@@ -9,10 +8,8 @@ import {
   useCopilotAction,
 } from "@copilotkit/react-core";
 import { Progress } from "./Progress";
-import { EditResourceDialog } from "./EditResourceDialog";
-import { AddResourceDialog } from "./AddResourceDialog";
-import { Resources } from "./Resources";
-import { AgentState, ReferenceMaterial, ProductInfo, Tag, BloggerPersona } from "@/lib/types";
+import { ProductInfoTabs } from "./ProductInfoTabs";
+import { AgentState, ReferenceMaterial, ProductInfo, BloggerPersona, BriefData, RetrievedExample } from "@/lib/types";
 
 export function XiaohongshuCanvas() {
   const { state, setState } = useCoAgent<AgentState>({
@@ -29,8 +26,7 @@ export function XiaohongshuCanvas() {
       },
       xiaohongshu_note: "",
       reference_materials: [],
-      tags: [],
-      target_audience: "",
+      brief_data: null,
       note_style: "grass_planting",
       blogger_persona: {
         name: "",
@@ -41,9 +37,12 @@ export function XiaohongshuCanvas() {
         personality_traits: [],
         content_themes: []
       },
-      logs: []
+      logs: [],
+      retrieved_examples: [],
+      retrieved_content: ""
     },
   });
+
 
   useCoAgentStateRender({
     name: "xiaohongshu_agent",
@@ -55,153 +54,180 @@ export function XiaohongshuCanvas() {
     },
   });
 
-  useCopilotAction({
-    name: "DeleteReferenceMaterials",
-    description:
-      "Prompt the user for reference materials delete confirmation, and then perform deletion",
-    available: "remote",
-    parameters: [
-      {
-        name: "urls",
-        type: "string[]",
+  // 用于跟踪之前的brief_data状态
+  const prevBriefDataRef = useRef<BriefData | null>(null);
+
+
+  // 移除了 DeleteReferenceMaterials action，因为现在使用 Brief 表代替参考素材
+
+  // 产品信息更新处理
+  const handleProductInfoUpdate = (productInfo: ProductInfo) => {
+    setState(prevState => ({ 
+      model: prevState?.model || "deepseek",
+      xiaohongshu_note: prevState?.xiaohongshu_note || "",
+      reference_materials: prevState?.reference_materials || [],
+      brief_data: prevState?.brief_data || null,
+      note_style: prevState?.note_style || "grass_planting",
+      blogger_persona: prevState?.blogger_persona || {
+        name: "",
+        style: "",
+        tone: "",
+        target_audience: "",
+        expertise: [],
+        personality_traits: [],
+        content_themes: []
       },
-    ],
-    renderAndWait: ({ args, status, handler }) => {
-      return (
-        <div
-          className=""
-          data-test-id="delete-material-generative-ui-container"
-        >
-          <div className="font-bold text-base mb-2">
-            删除这些参考素材？
-          </div>
-          <Resources
-            resources={referenceMaterials.filter((material) =>
-              (args.urls || []).includes(material.url)
-            )}
-            customWidth={200}
-          />
-          {status === "executing" && (
-            <div className="mt-4 flex justify-start space-x-2">
-              <button
-                onClick={() => handler("NO")}
-                className="px-4 py-2 text-[#6766FC] border border-[#6766FC] rounded text-sm font-bold"
-              >
-                取消
-              </button>
-              <button
-                data-test-id="button-delete"
-                onClick={() => handler("YES")}
-                className="px-4 py-2 bg-[#6766FC] text-white rounded text-sm font-bold"
-              >
-                删除
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    },
-  });
-
-  const referenceMaterials: ReferenceMaterial[] = state.reference_materials || [];
-  const setReferenceMaterials = (reference_materials: ReferenceMaterial[]) => {
-    setState({ ...state, reference_materials });
+      logs: prevState?.logs || [],
+      retrieved_examples: prevState?.retrieved_examples || [],
+      retrieved_content: prevState?.retrieved_content || "",
+      product_info: productInfo,
+    }));
   };
 
-  // const [referenceMaterials, setReferenceMaterials] = useState<ReferenceMaterial[]>(dummyMaterials);
-  const [newMaterial, setNewMaterial] = useState<ReferenceMaterial>({
-    url: "",
-    title: "",
-    description: "",
-    type: "competitor_note",
-    content: "",
-  });
-  const [isAddMaterialOpen, setIsAddMaterialOpen] = useState(false);
-
-  const addMaterial = () => {
-    if (newMaterial.url) {
-      setReferenceMaterials([...referenceMaterials, { ...newMaterial }]);
-      setNewMaterial({ url: "", title: "", description: "", type: "competitor_note", content: "" });
-      setIsAddMaterialOpen(false);
+  // Brief 数据更新处理
+  const handleBriefDataUpdate = async (briefData: BriefData | null) => {
+    // 保存到localStorage作为备份，防止Hot Refresh丢失数据
+    if (briefData) {
+      localStorage.setItem('xhs-brief-data', JSON.stringify(briefData));
+    } else {
+      localStorage.removeItem('xhs-brief-data');
     }
+    
+    // 更新状态
+    setState(prevState => ({
+      model: prevState?.model || "deepseek",
+      product_info: prevState?.product_info || {
+        name: "",
+        category: "",
+        price: "",
+        features: [],
+        target_audience: "",
+        selling_points: []
+      },
+      xiaohongshu_note: prevState?.xiaohongshu_note || "",
+      reference_materials: prevState?.reference_materials || [],
+      note_style: prevState?.note_style || "grass_planting",
+      blogger_persona: prevState?.blogger_persona || {
+        name: "",
+        style: "",
+        tone: "",
+        target_audience: "",
+        expertise: [],
+        personality_traits: [],
+        content_themes: []
+      },
+      logs: prevState?.logs || [],
+      retrieved_examples: prevState?.retrieved_examples || [],
+      retrieved_content: prevState?.retrieved_content || "",
+      brief_data: briefData,
+    }));
+    
+    // 检查是否是新的Brief数据上传
+    const isNewBriefData = briefData && !prevBriefDataRef.current;
+    prevBriefDataRef.current = briefData;
+    
   };
 
-  const removeMaterial = (url: string) => {
-    setReferenceMaterials(
-      referenceMaterials.filter((material: ReferenceMaterial) => material.url !== url)
-    );
-  };
-
-  const [editMaterial, setEditMaterial] = useState<ReferenceMaterial | null>(null);
-  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const [isEditMaterialOpen, setIsEditMaterialOpen] = useState(false);
-
-  const handleCardClick = (material: ReferenceMaterial) => {
-    setEditMaterial({ ...material }); // Ensure a new object is created
-    setOriginalUrl(material.url); // Store the original URL
-    setIsEditMaterialOpen(true);
-  };
-
-  const updateMaterial = () => {
-    if (editMaterial && originalUrl) {
-      setReferenceMaterials(
-        referenceMaterials.map((material) =>
-          material.url === originalUrl ? { ...editMaterial } : material
-        )
-      );
-      setEditMaterial(null);
-      setOriginalUrl(null);
-      setIsEditMaterialOpen(false);
+  // 在组件初始化时恢复localStorage中的Brief数据
+  useEffect(() => {
+    const savedBriefData = localStorage.getItem('xhs-brief-data');
+    if (savedBriefData && !state.brief_data) {
+      try {
+        const briefData = JSON.parse(savedBriefData);
+        setState(prevState => ({ 
+          model: prevState?.model || "deepseek",
+          product_info: prevState?.product_info || {
+            name: "",
+            category: "",
+            price: "",
+            features: [],
+            target_audience: "",
+            selling_points: []
+          },
+          xiaohongshu_note: prevState?.xiaohongshu_note || "",
+          reference_materials: prevState?.reference_materials || [],
+          note_style: prevState?.note_style || "grass_planting",
+          blogger_persona: prevState?.blogger_persona || {
+            name: "",
+            style: "",
+            tone: "",
+            target_audience: "",
+            expertise: [],
+            personality_traits: [],
+            content_themes: []
+          },
+          logs: prevState?.logs || [],
+          retrieved_examples: prevState?.retrieved_examples || [],
+          retrieved_content: prevState?.retrieved_content || "",
+          brief_data: briefData,
+        }));
+      } catch (error) {
+        localStorage.removeItem('xhs-brief-data');
+      }
     }
-  };
+  }, [state.brief_data, setState]);
 
+  
+  
   return (
     <div className="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
       <div className="space-y-8 pb-10">
+        <ProductInfoTabs
+          productInfo={state.product_info || {
+            name: "",
+            category: "",
+            price: "",
+            features: [],
+            target_audience: "",
+            selling_points: []
+          }}
+          briefData={state.brief_data}
+          onProductInfoUpdate={handleProductInfoUpdate}
+          onBriefDataUpdate={handleBriefDataUpdate}
+        />
+
+        {/* 文案库检索 - 移到博主人设之前 */}
         <div>
-          <h2 className="text-lg font-medium mb-3 text-primary">
-            产品信息
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-medium text-primary">
+              文案库检索
+            </h2>
+          </div>
           <div className="space-y-4 bg-background p-6 rounded-xl">
-            <Input
-              placeholder="产品名称"
-              value={state.product_info?.name || ""}
-              onChange={(e) =>
-                setState({ 
-                  ...state, 
-                  product_info: { 
-                    ...state.product_info, 
-                    name: e.target.value 
-                  } 
-                })
-              }
-              aria-label="Product name"
-              className="border-0 shadow-none text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
-            />
-            <Input
-              placeholder="产品类别"
-              value={state.product_info?.category || ""}
-              onChange={(e) =>
-                setState({ 
-                  ...state, 
-                  product_info: { 
-                    ...state.product_info, 
-                    category: e.target.value 
-                  } 
-                })
-              }
-              aria-label="Product category"
-              className="border-0 shadow-none text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
-            />
-            <Input
-              placeholder="目标用户"
-              value={state.target_audience || ""}
-              onChange={(e) =>
-                setState({ ...state, target_audience: e.target.value })
-              }
-              aria-label="Target audience"
-              className="border-0 shadow-none text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
-            />
+            {state.retrieved_examples && state.retrieved_examples.length > 0 ? (
+              <div className="space-y-3">
+                <div className="text-sm text-slate-600 mb-3">
+                  已检索到 {state.retrieved_examples.length} 个相关文案示例
+                </div>
+                {state.retrieved_examples.slice(0, 3).map((example, index) => (
+                  <div
+                    key={example.id}
+                    className="border border-slate-200 rounded-lg p-3 bg-slate-50"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-slate-700">
+                        {example.title}
+                      </span>
+                      <span className="text-xs text-slate-500 bg-green-100 px-2 py-1 rounded">
+                        相似度: {(example.similarity * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-600 line-clamp-3">
+                      {example.content.substring(0, 120)}...
+                    </div>
+                  </div>
+                ))}
+                {state.retrieved_examples.length > 3 && (
+                  <div className="text-xs text-slate-500 text-center">
+                    还有 {state.retrieved_examples.length - 3} 个示例可供参考
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">
+                上传Brief数据后，系统将自动从文案库检索相关示例
+              </div>
+            )}
           </div>
         </div>
 
@@ -282,38 +308,6 @@ export function XiaohongshuCanvas() {
           </div>
         </div>
 
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-medium text-primary">参考素材</h2>
-            <EditResourceDialog
-              isOpen={isEditMaterialOpen}
-              onOpenChange={setIsEditMaterialOpen}
-              editResource={editMaterial}
-              setEditResource={setEditMaterial}
-              updateResource={updateMaterial}
-            />
-            <AddResourceDialog
-              isOpen={isAddMaterialOpen}
-              onOpenChange={setIsAddMaterialOpen}
-              newResource={newMaterial}
-              setNewResource={setNewMaterial}
-              addResource={addMaterial}
-            />
-          </div>
-          {referenceMaterials.length === 0 && (
-            <div className="text-sm text-slate-400">
-              点击上方按钮添加参考素材。
-            </div>
-          )}
-
-          {referenceMaterials.length !== 0 && (
-            <Resources
-              resources={referenceMaterials}
-              handleCardClick={handleCardClick}
-              removeResource={removeMaterial}
-            />
-          )}
-        </div>
 
         <div className="flex flex-col h-full">
           <h2 className="text-lg font-medium mb-3 text-primary">
@@ -323,34 +317,15 @@ export function XiaohongshuCanvas() {
             data-test-id="xiaohongshu-note"
             placeholder="在这里撰写小红书笔记内容..."
             value={state.xiaohongshu_note || ""}
-            onChange={(e) => setState({ ...state, xiaohongshu_note: e.target.value })}
+            onChange={(e) => setState({ 
+              ...state, 
+              xiaohongshu_note: e.target.value,
+            })}
             rows={10}
             aria-label="Xiaohongshu note"
             className="bg-background px-6 py-8 border-0 shadow-none rounded-xl text-md font-extralight focus-visible:ring-0 placeholder:text-slate-400"
             style={{ minHeight: "200px" }}
           />
-          
-          <div className="mt-4">
-            <h3 className="text-md font-medium mb-2 text-primary">
-              话题标签
-            </h3>
-            <div className="flex flex-wrap gap-2 bg-background p-4 rounded-xl min-h-[60px]">
-              {(state.tags || []).map((tag, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
-                >
-                  #{tag.name}
-                  <span className="ml-1 text-xs text-blue-600">({tag.heat_level})</span>
-                </span>
-              ))}
-              {(!state.tags || state.tags.length === 0) && (
-                <div className="text-sm text-slate-400">
-                  AI将根据产品信息自动生成相关话题标签
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>

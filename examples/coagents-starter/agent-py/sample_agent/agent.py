@@ -56,7 +56,11 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
     """
 
     # 1. Define the model
-    model = ChatOpenAI(model="gpt-4o")
+    model = ChatOpenAI(
+        base_url="https://ark.cn-beijing.volces.com/api/v3",
+        model="ep-20250206170923-bx29l",
+        api_key="6b87ba5a-f465-48a8-9a56-1f6d57d3042d"
+    )
 
     # 2. Bind the tools to the model
     model_with_tools = model.bind_tools(

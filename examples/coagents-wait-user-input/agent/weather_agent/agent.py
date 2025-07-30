@@ -22,11 +22,15 @@ tools = [search]
 tool_node = ToolNode(tools)
 
 # Set up the model
-#from langchain_anthropic import ChatAnthropic
+# from langchain_anthropic import ChatAnthropic
 from langchain_openai import ChatOpenAI
 
 # model = ChatAnthropic(model="claude-3-5-sonnet-20240620")
-model = ChatOpenAI(model="gpt-4o")
+model = ChatOpenAI(
+    base_url="https://ark.cn-beijing.volces.com/api/v3",
+    model="ep-20250206170923-bx29l",
+    api_key="6b87ba5a-f465-48a8-9a56-1f6d57d3042d",
+)
 
 from pydantic import BaseModel
 

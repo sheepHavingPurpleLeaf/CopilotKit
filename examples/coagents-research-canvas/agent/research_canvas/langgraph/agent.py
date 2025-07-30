@@ -34,12 +34,22 @@ workflow.add_edge("search_node", "download")
 # This allows compatibility with both LangGraph API and CopilotKit
 compile_kwargs = {"interrupt_after": ["delete_node"]}
 
-# Check if we're running in LangGraph API mode
-if os.environ.get("LANGGRAPH_API", "false").lower() == "true":
-    # When running in LangGraph API, don't use a custom checkpointer
+# Check if we're running in LangGraph Studio/API mode
+# Multiple ways to detect Studio environment
+is_langgraph_studio = (
+    os.environ.get("LANGGRAPH_API", "false").lower() == "true" or
+    os.environ.get("LANGGRAPH_RUNTIME", "") == "inmem" or
+    "langgraph_runtime_inmem" in str(os.environ.get("PYTHONPATH", "")) or
+    any("langgraph" in str(v) for v in os.environ.values() if isinstance(v, str))
+)
+
+if is_langgraph_studio:
+    # When running in LangGraph Studio/API, don't use a custom checkpointer
+    print("🎨 Running in LangGraph Studio mode - using built-in persistence")
     graph = workflow.compile(**compile_kwargs)
 else:
     # For CopilotKit and other contexts, use MemorySaver
+    print("🔧 Running in CopilotKit mode - using MemorySaver")
     from langgraph.checkpoint.memory import MemorySaver
     memory = MemorySaver()
     compile_kwargs["checkpointer"] = memory

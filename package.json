@@ -11,14 +11,14 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "danger": "^12.3.3",
+    "danger": "^13.0.4",
     "husky": "^9.1.4"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.8.11",
-    "@copilotkit/react-textarea": "1.8.11",
-    "@copilotkit/react-ui": "1.8.11",
-    "@copilotkit/runtime": "1.8.11",
+    "@copilotkit/react-core": "^1.9.3",
+    "@copilotkit/react-textarea": "^1.9.3",
+    "@copilotkit/react-ui": "^1.9.3",
+    "@copilotkit/runtime": "^1.9.3",
     "nvm": "^0.0.4"
   }
 }

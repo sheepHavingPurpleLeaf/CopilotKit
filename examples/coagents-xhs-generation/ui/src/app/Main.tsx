@@ -19,8 +19,7 @@ export default function Main() {
       },
       xiaohongshu_note: "",
       reference_materials: [],
-      tags: [],
-      target_audience: "",
+      brief_data: null,
       note_style: "grass_planting",
       blogger_persona: {
         name: "",
@@ -32,6 +31,8 @@ export default function Main() {
         content_themes: []
       },
       logs: [],
+      retrieved_examples: [],
+      retrieved_content: "",
     },
   });
 

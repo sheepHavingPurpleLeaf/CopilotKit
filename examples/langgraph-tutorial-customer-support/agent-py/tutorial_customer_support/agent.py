@@ -3,6 +3,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.runnables import RunnableConfig, Runnable
 from langchain_core.prompts import ChatPromptTemplate
+
 # NOTE: you must use langchain-core >= 0.3 with Pydantic v2
 
 from langgraph.checkpoint.memory import MemorySaver
@@ -34,9 +35,9 @@ from tutorial_customer_support.tools import (
 )
 
 
-
 class State(CopilotKitState):
     user_info: str
+
 
 class Assistant:
     def __init__(self, runnable: Runnable):
@@ -64,13 +65,19 @@ class Assistant:
 
 # Haiku is faster and cheaper, but less accurate
 # llm = ChatAnthropic(model="claude-3-haiku-20240307")
-llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=1)
+# llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=1)
 # You could swap LLMs, though you will likely want to update the prompts when
 # doing so!
-# from langchain_openai import ChatOpenAI
 
 # llm = ChatOpenAI(model="gpt-4-turbo-preview")
+from langchain_openai import ChatOpenAI
 
+# model = ChatAnthropic(model="claude-3-5-sonnet-20240620")
+llm = ChatOpenAI(
+    base_url="https://ark.cn-beijing.volces.com/api/v3",
+    model="ep-20250206170923-bx29l",
+    api_key="6b87ba5a-f465-48a8-9a56-1f6d57d3042d",
+)
 primary_assistant_prompt = ChatPromptTemplate.from_messages(
     [
         (
