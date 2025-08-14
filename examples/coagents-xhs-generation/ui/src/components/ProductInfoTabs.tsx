@@ -295,7 +295,6 @@ export function ProductInfoTabs({
                       productName: e.target.value,
                       uploadTime: currentBrief.uploadTime || new Date().toISOString()
                     });
-                    handleFieldUpdate('name', e.target.value);
                   }}
                   aria-label="Product name"
                   className="border border-gray-200 shadow-sm text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 placeholder:text-gray-400 transition-colors"
@@ -372,7 +371,6 @@ export function ProductInfoTabs({
                       targetAudience: e.target.value,
                       uploadTime: currentBrief.uploadTime || new Date().toISOString()
                     });
-                    handleFieldUpdate('target_audience', e.target.value);
                   }}
                   aria-label="Target audience"
                   className="border border-gray-200 shadow-sm text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 placeholder:text-gray-400 transition-colors"
@@ -411,7 +409,6 @@ export function ProductInfoTabs({
                       painPointType: e.target.value,
                       uploadTime: currentBrief.uploadTime || new Date().toISOString()
                     });
-                    handleFieldUpdate('category', e.target.value);
                   }}
                   aria-label="Pain point type"
                   className="border border-gray-200 shadow-sm text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 placeholder:text-gray-400 transition-colors"
@@ -438,8 +435,6 @@ export function ProductInfoTabs({
                       auxiliarySellingPoints: sellingPoints.slice(3).join(', ') || '',
                       uploadTime: currentBrief.uploadTime || new Date().toISOString()
                     });
-                    
-                    handleFieldUpdate('selling_points', sellingPoints);
                   }}
                   aria-label="Product selling points"
                   className="border border-gray-200 shadow-sm text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 placeholder:text-gray-400 transition-colors pr-10"

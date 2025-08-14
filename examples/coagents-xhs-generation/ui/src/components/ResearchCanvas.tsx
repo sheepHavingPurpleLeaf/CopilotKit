@@ -93,17 +93,33 @@ export function XiaohongshuCanvas() {
       localStorage.removeItem('xhs-brief-data');
     }
     
+    // 从Brief数据中提取产品信息
+    let updatedProductInfo = state.product_info;
+    if (briefData) {
+      const extractedFeatures = [];
+      if (briefData.productFunction) extractedFeatures.push(briefData.productFunction);
+      if (briefData.usageMethod) extractedFeatures.push(briefData.usageMethod);
+      
+      const extractedSellingPoints = [];
+      if (briefData.coreSellingPoint1) extractedSellingPoints.push(briefData.coreSellingPoint1);
+      if (briefData.coreSellingPoint2) extractedSellingPoints.push(briefData.coreSellingPoint2);
+      if (briefData.coreSellingPoint3) extractedSellingPoints.push(briefData.coreSellingPoint3);
+      if (briefData.auxiliarySellingPoints) extractedSellingPoints.push(briefData.auxiliarySellingPoints);
+
+      updatedProductInfo = {
+        name: briefData.productName || state.product_info.name,
+        category: briefData.painPointType || state.product_info.category,
+        price: briefData.productPrice || state.product_info.price,
+        target_audience: briefData.targetAudience || state.product_info.target_audience,
+        features: extractedFeatures.length > 0 ? extractedFeatures : state.product_info.features,
+        selling_points: extractedSellingPoints.length > 0 ? extractedSellingPoints : state.product_info.selling_points,
+      };
+    }
+    
     // 更新状态
     setState(prevState => ({
       model: prevState?.model || "deepseek",
-      product_info: prevState?.product_info || {
-        name: "",
-        category: "",
-        price: "",
-        features: [],
-        target_audience: "",
-        selling_points: []
-      },
+      product_info: updatedProductInfo,
       xiaohongshu_note: prevState?.xiaohongshu_note || "",
       reference_materials: prevState?.reference_materials || [],
       note_style: prevState?.note_style || "grass_planting",
